@@ -1,0 +1,23 @@
+version: "3"
+
+x-base: &base #
+  image: crypto_monitor:0.0.1
+  # image: ab
+  environment:
+    - PYTHONPATH=/root/crypto_monitor/:$PYTHONPATH
+  network_mode: host
+  ipc: host
+  restart: always
+
+services:
+  crypto_monitor:
+    container_name: crypto_monitor
+    <<: *base
+    environment:
+      EXCHANGE: binance       # only supports binance so far
+      PRODUCT_TYPE: spot      # spot / linear 
+      API_KEY:               # TODO: ENTER YOUR API KEY
+      API_SECRET:            # TODO: ENTER YOUR API KEY
+      LARK_URL:              # LARK URL
+    command: |
+      /usr/bin/python3 /root/crypto_monitor/src/main.py
