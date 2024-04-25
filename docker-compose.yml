@@ -14,10 +14,10 @@ services:
     container_name: crypto_monitor
     <<: *base
     environment:
-      EXCHANGE: binance       # only supports binance so far
-      PRODUCT_TYPE: spot      # spot / linear 
+      EXCHANGE: okx          # only supports binance so far
       API_KEY:               # TODO: ENTER YOUR API KEY
-      API_SECRET:            # TODO: ENTER YOUR API KEY
+      API_SECRET:            # TODO: ENTER YOUR API SECRET
+      PASSPHRASE:            # TODO: ENTER PASSPHRASE (REQEUIRED FOR OKX)
       LARK_URL:              # LARK URL
     command: |
       /usr/bin/python3 /root/crypto_monitor/src/main.py

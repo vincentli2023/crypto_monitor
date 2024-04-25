@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class Exchange:
     binance = 'binance'
     bybit = 'bybit'
+    okx = "okx"
 
 def get_curr_time(ms = True) -> int:
     """ get current time in ms (default) or second """
