@@ -141,7 +141,7 @@ class CryptoMonitor:
                 #'pxType': '', 'pxUsd': '', 'pxVol': '', 'linkedAlgoOrd': {'algoId': ''}, 'attachAlgoOrds': []}
                 state: OkxOrderStatus = d["state"]
                 if state in ["partially_filled", "filled"]: # execution
-                    amount_usd: float = self.to_float(d["fillPx"]) * self.to_float(d["fillSz"])
+                    amount_usd: float = self.to_float(d["fillNotionalUsd"])
                     is_maker: bool = d["ordType"] == "limit"
                     receive_exec_latency_ms: int = get_curr_time() - int(d["uTime"])
                     execution = Execution(d["instId"], self.to_float(d["fillPx"]), self.to_float(d["fillSz"]), amount_usd, d["side"].lower(), d["ordId"], d["clOrdId"], is_maker, int(d["uTime"]), receive_exec_latency_ms)
