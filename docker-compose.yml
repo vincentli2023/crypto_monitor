@@ -15,9 +15,9 @@ services:
     <<: *base
     environment:
       EXCHANGE: okx          # only supports binance so far
-      API_KEY:               # TODO: ENTER YOUR API KEY
-      API_SECRET:            # TODO: ENTER YOUR API SECRET
-      PASSPHRASE:            # TODO: ENTER PASSPHRASE (REQEUIRED FOR OKX)
-      LARK_URL:              # LARK URL
+      API_KEY:           # TODO: ENTER YOUR API KEY
+      API_SECRET:        # TODO: ENTER YOUR API SECRET
+      PASSPHRASE:        # TODO: ENTER PASSPHRASE (REQEUIRED FOR OKX)
+      LARK_URL:          # LARK URL
     command: |
       /usr/bin/python3 /root/crypto_monitor/src/main.py

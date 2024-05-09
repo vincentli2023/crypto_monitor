@@ -87,16 +87,22 @@ class CryptoMonitor:
                 logger.warning(f"Exception occurred in process_txns: {e}")
                 sleep(5)
 
+    def to_float(self, value: str) -> float:
+        """ convert a string value to float, taking empty string as 0 """
+        return float(value) if value else 0
+    
     @decorator_try_catch
     def format_txn_message(self, message):
         """ process txn message """
-        # logger.info(f'recevied raw message: {message}')
+        logger.info(f'recevied raw message: {message}')
         if message == "pong":
             return
         received_msg_ms: int = get_curr_time()
         execution: Execution = None
         order: RawOrder = None
-        data = json.loads(message)
+        data: dict = json.loads(message)
+        if "event" in data and data["event"] in ["login", "subscribe", "channel-conn-count"]:
+            return
         if self.exchange == Exchange.binance and PRODUCT_TYPE == "spot" and data['e'] == 'executionReport' and 'x' in data.keys():
             if data['x'] == 'TRADE': # process execution
                 logger.info(f"ws received execution: {data}")
@@ -135,13 +141,14 @@ class CryptoMonitor:
                 #'pxType': '', 'pxUsd': '', 'pxVol': '', 'linkedAlgoOrd': {'algoId': ''}, 'attachAlgoOrds': []}
                 state: OkxOrderStatus = d["state"]
                 if state in ["partially_filled", "filled"]: # execution
-                    amount_usd: float = float(d["px"]) * float(d["fillSz"])
+                    amount_usd: float = self.to_float(d["fillPx"]) * self.to_float(d["fillSz"])
                     is_maker: bool = d["ordType"] == "limit"
                     receive_exec_latency_ms: int = get_curr_time() - int(d["uTime"])
-                    execution = Execution(d["instId"], float(d["px"]), float(d["fillSz"]), amount_usd, d["side"].lower(), d["ordId"], d["clOrdId"], is_maker, int(d["uTime"]), receive_exec_latency_ms)
+                    execution = Execution(d["instId"], self.to_float(d["fillPx"]), self.to_float(d["fillSz"]), amount_usd, d["side"].lower(), d["ordId"], d["clOrdId"], is_maker, int(d["uTime"]), receive_exec_latency_ms)
                 else: #"canceled", "live", "mmp_canceled"
-                    order = RawOrder(d["instId"], float(d["px"]), d["side"].lower(), d["ordId"], d["clOrdId"],
-                                                float(d["sz"]), state, int(d["uTime"]))
+                    price: float = self.to_float(d["px"]) if d["ordType"] != "market" else -1
+                    order = RawOrder(d["instId"], price, d["side"].lower(), d["ordId"], d["clOrdId"],
+                                                self.to_float(d["sz"]), state, int(d["uTime"]))
 
         else:
             msg: str = f'unconsidered scenario! {data}'
@@ -151,7 +158,8 @@ class CryptoMonitor:
         if execution:
             side = 'B' if execution.side == 'buy' else 'S' # BUY => buy
             time_str = str(pd.to_datetime(execution.time, unit='ms').strftime('%Y-%m-%d %H:%M:%S.%f'))[:-3][-6:]
-            msg_str = f"{execution.symbol[:-4]}{self.product} |{side}|{execution.price}|{time_str}|{execution.quantity}|{round(execution.amount_usd,1)} {execution.client_order_id} [{execution.receive_exec_latency_ms}ms]"
+            msg_str = f"{execution.symbol[:-4]}{self.product} |{side}|{execution.price}|{time_str}|{execution.quantity}|{round(execution.amount_usd,1)}"
+            # msg_str = f"{execution.symbol[:-4]}{self.product} |{side}|{execution.price}|{time_str}|{execution.quantity}|{round(execution.amount_usd,1)} {execution.client_order_id} [{execution.receive_exec_latency_ms}ms]"
             if execution.is_maker:
                 msg_str = "**" + msg_str + "**"
             else:
@@ -159,17 +167,17 @@ class CryptoMonitor:
             logger.info(f"prepare to send exec info: {msg_str}")
             self.txns.put(msg_str)
         
-        if order:
-            side = 'B' if order.side == 'buy' else 'S' # BUY => buy
-            time_str = str(pd.to_datetime(order.time, unit='ms').strftime('%Y-%m-%d %H:%M:%S.%f'))[:-3][-6:]
-            amount_usd: float = order.price * order.leaves_qty
-            msg_str = f"{order.symbol[:-4]}{self.product} |{side}|{order.price}|{time_str}|{order.leaves_qty}|{round(amount_usd,1)} {order.order_link_id} {order.status}"
-            if order.status in ["NEW", "live"]:
-                msg_str = "🟢 " + msg_str
-            else:
-                msg_str = "🟠 " + msg_str
-            logger.info(f"prepare to send order info: {msg_str}")
-            self.txns.put(msg_str)
+        # if order:
+        #     side = 'B' if order.side == 'buy' else 'S' # BUY => buy
+        #     time_str = str(pd.to_datetime(order.time, unit='ms').strftime('%Y-%m-%d %H:%M:%S.%f'))[:-3][-6:]
+        #     amount_usd: float = order.price * order.leaves_qty
+        #     msg_str = f"{order.symbol[:-4]}{self.product} |{side}|{order.price}|{time_str}|{order.leaves_qty}|{round(amount_usd,1)} {order.order_link_id} {order.status}"
+        #     if order.status in ["NEW", "live"]:
+        #         msg_str = "🟢 " + msg_str
+        #     else:
+        #         msg_str = "🟠 " + msg_str
+        #     logger.info(f"prepare to send order info: {msg_str}")
+        #     self.txns.put(msg_str)
     
         
     def on_message(self, ws, message):
@@ -190,8 +198,9 @@ class CryptoMonitor:
             self.subscribe_to_okx_streams(ws)
             def run(*args):
                 while True:
-                    time.sleep(20)  # Ping interval
-                    ws.send('ping')  # Send a ping to the server
+                    time.sleep(20)   # Ping interval
+                    self.ws.send('ping')  # Send a ping to the server
+                    logger.info('sent pint to server')
             thread = threading.Thread(target=run)
             thread.start()
 
